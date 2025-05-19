@@ -1,0 +1,66 @@
+services:
+    php:
+        build:
+            context: .
+            dockerfile: config/docker/php.Dockerfile
+        env_file:
+            - .docker.env
+        container_name: php
+        user: ${CURRENT_UID}
+        volumes:
+            - './src/:/var/www/src'
+            - './config/php/php.ini:/usr/local/etc/php/php.ini'
+            - './config/php/error_reporting.ini:/usr/local/etc/php/conf.d/error_reporting.ini'
+        networks:
+            - app-network
+
+    nginx:
+        build:
+            context: .
+            dockerfile: config/docker/nginx.Dockerfile
+        container_name: web
+        env_file:
+            - .docker.env
+        depends_on:
+            - php
+            - mariadb
+        ports:
+            - ${WEBPORT}
+        volumes:
+            - './src/:/var/www/src'
+            - './config/nginx/default.conf:/etc/nginx/conf.d/default.conf'
+        networks:
+            - app-network
+
+    mariadb:
+        container_name: mdb
+        image: mariadb
+        env_file:
+            - .docker.env
+        volumes:
+            - 'mysql-data:/var/lib/mysql'
+        environment:
+            - MARIADB_ROOT_PASSWORD=$MARIADB_ROOT_PASSWORD
+        ports:
+            - ${MDBPORT}
+        networks:
+            - app-network
+
+    node:
+        build:
+            context: ./src
+            dockerfile: ../config/docker/node.Dockerfile
+        container_name: node
+        volumes:
+            - './src/:/var/www/src'
+        command: sh -c "npm install && npm run dev"
+        ports:
+            - "5173:5173"
+        networks:
+            - app-network
+
+volumes:
+    mysql-data:
+networks:
+    app-network:
+        driver: bridge
